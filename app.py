@@ -20,6 +20,7 @@ import pytesseract
 import shutil
 import sys
 import subprocess
+from typing import List, Dict, Any
 
 warnings.filterwarnings("ignore")
 
@@ -31,24 +32,20 @@ if "YOUR-KEY" in QWEN_API_KEY:
 QWEN_URL_TEXT = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
 QWEN_URL_VL   = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
 
-# ===================== 跨平台 OCR 路径（修复版 · 自动兼容 Windows） =====================
+# ===================== 跨平台 OCR 路径 =====================
 def find_tesseract():
     env_path = os.getenv("TESSERACT_CMD")
     if env_path and os.path.isfile(env_path):
         return env_path
-
     if sys.platform.startswith("win"):
         candidates = [
             r"D:\新建文件夹\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
             r"C:\Tesseract-OCR\tesseract.exe",
-            r"D:\Tesseract-OCR\tesseract.exe",
-            r"E:\Tesseract-OCR\tesseract.exe",
         ]
     else:
         candidates = ["/usr/bin/tesseract", "/usr/local/bin/tesseract"]
-
     for path in candidates:
         if os.path.isfile(path):
             return path
@@ -142,7 +139,7 @@ def load_image_from_path(img_path):
 
 # ===================== 工具函数 =====================
 def pil_to_b64(img):
-    buf = io.Buffer()
+    buf = io.BytesIO()
     img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode()
 
@@ -409,9 +406,10 @@ def build_index(all_data):
     if v_ids: v_c.add(ids=v_ids, embeddings=v_vecs, documents=v_docs, metadatas=v_meta)
     return p_tc, p_vc, t_c, v_c
 
-# ===================== 分层检索 =====================
+# ===================== 分层检索（支持 trace） =====================
 def retrieve_hierarchical(query, p_tc, p_vc, t_c, v_c,
-                          use_page=True, use_vis=True, dynamic_weight=True, top_k=20):
+                          use_page=True, use_vis=True, dynamic_weight=True, top_k=20,
+                          return_trace=False):
     q_st = embedder.encode_text_st([query])[0]
     q_clip = embedder.encode_text_clip([query])[0]
 
@@ -428,6 +426,8 @@ def retrieve_hierarchical(query, p_tc, p_vc, t_c, v_c,
         cand_pages = set([m["page"] for m in t_all["metadatas"][0]] +
                          [m["page"] for m in v_all["metadatas"][0]])
     if not cand_pages:
+        if return_trace:
+            return [], [], [], []
         return []
 
     t_res = t_c.query(query_embeddings=[q_st], n_results=top_k, where={"page":{"$in":list(cand_pages)}})
@@ -464,15 +464,21 @@ def retrieve_hierarchical(query, p_tc, p_vc, t_c, v_c,
                 "bbox_str": m["bbox"], "img_path": m.get("img_path")
             })
     merged.sort(key=lambda x: x["score"], reverse=True)
-    candidates = merged[:top_k]
+    # 保存重排序前的Top-k（深拷贝）
+    pre_rerank_dicts = [dict(item) for item in merged[:top_k]]
 
-    if len(candidates) > 1:
-        pairs = [[query, c["content"][:400]] for c in candidates[:15]]
+    if len(pre_rerank_dicts) > 1:
+        pairs = [[query, c["content"][:400]] for c in pre_rerank_dicts[:15]]
         ce_scores = reranker.predict(pairs)
-        for i, c in enumerate(candidates[:15]):
+        for i, c in enumerate(pre_rerank_dicts[:15]):
             c["score"] = float(ce_scores[i])
-        candidates.sort(key=lambda x: x["score"], reverse=True)
-    return candidates[:6]
+        pre_rerank_dicts.sort(key=lambda x: x["score"], reverse=True)
+
+    final_context = pre_rerank_dicts[:6]
+
+    if return_trace:
+        return final_context, list(cand_pages), merged[:top_k], final_context
+    return final_context
 
 # ===================== 事实核查 =====================
 def batch_fact_check(sentences, evidences):
@@ -508,35 +514,24 @@ JSON数组："""
     ev_vecs = embedder.encode_text_st(evidences)
     return [float(np.max(cosine_similarity([v], ev_vecs))) > 0.7 for v in s_vecs]
 
-# ===================== 生成与验证（通义千问版） =====================
+# ===================== 生成与验证 =====================
 def generate_and_verify(query, context):
-    st.write("QWEN Key:", QWEN_API_KEY[:10])
-    st.write("URL:", QWEN_URL_TEXT)
-    st.write("检索结果数:", len(context))
-    
     ctx_str = "\n".join([f"[{c['src']}|P{c['page']}] {c['content'][:300]}" for c in context])
     prompt = f"""基于证据回答。证据不足则说“未找到”。
 证据：
 {ctx_str}
 问题：{query}
 答案（标注引用页码，如[Page 3]）："""
-
     try:
         resp = requests.post(
             QWEN_URL_TEXT,
             headers={"Authorization": f"Bearer {QWEN_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "qwen2.5-7b-instruct",
-                "input": {"messages": [{"role": "user", "content": prompt}]}
-            },
+            json={"model": "qwen2.5-7b-instruct", "input": {"messages": [{"role": "user", "content": prompt}]}},
             timeout=20
         )
-        st.write("📡 HTTP 状态码:", resp.status_code)
-        st.write("📄 响应内容:", resp.text[:500])
         resp.raise_for_status()
         ans = resp.json()["output"]["text"]
     except Exception as e:
-        st.error(f"生成失败：{str(e)}")
         return "生成出错", [], context
 
     sentences = re.split(r'(?<=[。！？.!?])\s*', ans)
@@ -559,8 +554,68 @@ def generate_and_verify(query, context):
         clean_ans += "\n\n*(系统校验：部分语句未被证据支持)*"
     return clean_ans, verified_pages, context
 
-# ===================== 消融实验 =====================
-def run_ablation_study(qa_set, p_tc, p_vc, t_c, v_c):
+# ===================== 评估函数 =====================
+def evaluate_retrieval_layer(true_pages: List[int], retrieved_pages: List[int], k=3) -> Dict[str, float]:
+    if not true_pages:
+        return {"Recall@k": 0.0, "Precision@k": 0.0, "MRR": 0.0}
+    true_set = set(true_pages)
+    retrieved_k = retrieved_pages[:k]
+    recall = len(set(retrieved_k) & true_set) / len(true_set)
+    precision = len(set(retrieved_k) & true_set) / len(retrieved_k) if retrieved_k else 0.0
+    mrr = 0.0
+    for rank, p in enumerate(retrieved_k, 1):
+        if p in true_set:
+            mrr = 1.0 / rank
+            break
+    return {"Recall@k": recall, "Precision@k": precision, "MRR": mrr}
+
+def evaluate_chunk_layer(true_chunks: List[str], retrieved_chunks: List[str], k=5) -> Dict[str, float]:
+    if not true_chunks:
+        return {"Recall@k": 0.0, "Precision@k": 0.0, "MRR": 0.0}
+    retrieved_k = retrieved_chunks[:k]
+    recall = len(set(retrieved_k) & set(true_chunks)) / len(set(true_chunks))
+    precision = len(set(retrieved_k) & set(true_chunks)) / len(retrieved_k) if retrieved_k else 0.0
+    mrr = 0.0
+    for rank, c in enumerate(retrieved_k, 1):
+        if c in true_chunks:
+            mrr = 1.0 / rank
+            break
+    return {"Recall@k": recall, "Precision@k": precision, "MRR": mrr}
+
+def evaluate_answer(pred: str, true: str) -> Dict[str, float]:
+    em = 1.0 if true[:20] in pred else 0.0
+    pred_words = set(re.findall(r"[\u4e00-\u9fa5a-zA-Z0-9]+", pred.lower()))
+    true_words = set(re.findall(r"[\u4e00-\u9fa5a-zA-Z0-9]+", true.lower()))
+    if len(pred_words) + len(true_words) == 0:
+        f1 = 0.0
+    else:
+        common = pred_words & true_words
+        prec = len(common) / len(pred_words) if pred_words else 0.0
+        rec = len(common) / len(true_words) if true_words else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+    bleu_1 = 0.0
+    rouge_l = 0.0
+    try:
+        from nltk.translate.bleu_score import sentence_bleu
+        bleu_1 = sentence_bleu([true.split()], pred.split(), weights=(1,0,0,0))
+    except ImportError:
+        pass
+    try:
+        from rouge_score import rouge_scorer
+        scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
+        rouge_l = scorer.score(true, pred)['rougeL'].fmeasure
+    except ImportError:
+        pass
+    return {"EM": em, "F1": f1, "BLEU-1": bleu_1, "ROUGE-L": rouge_l}
+
+def evaluate_evidence_layer(sentences: List[str], evidences: List[str]) -> float:
+    if not sentences:
+        return 0.0
+    supported = batch_fact_check(sentences, evidences)
+    return sum(supported) / len(sentences)
+
+# ===================== 消融实验（三层评估） =====================
+def run_full_ablation_study(qa_set, p_tc, p_vc, t_c, v_c):
     setups = [
         {"name": "Baseline (Flat Text)",      "use_page": False, "use_vis": False, "dynamic": False},
         {"name": "ExpA (+Hierarchical)",      "use_page": True,  "use_vis": False, "dynamic": False},
@@ -569,30 +624,130 @@ def run_ablation_study(qa_set, p_tc, p_vc, t_c, v_c):
     ]
     results = []
     for s in setups:
-        total_recall, total_em, total_f1 = 0,0,0
-        for q, true_ans, true_pages in qa_set:
-            ctx = retrieve_hierarchical(q, p_tc, p_vc, t_c, v_c,
-                                        use_page=s["use_page"], use_vis=s["use_vis"],
-                                        dynamic_weight=s["dynamic"])
-            pred, vp, _ = generate_and_verify(q, ctx)
-            recall = len(set(true_pages) & set(vp)) / max(1, len(true_pages))
-            em = 1.0 if true_ans[:10] in pred else 0.0
-            p_words = set(re.findall(r"[\u4e00-\u9fa5a-zA-Z0-9]+", pred))
-            t_words = set(re.findall(r"[\u4e00-\u9fa5a-zA-Z0-9]+", true_ans))
-            f1 = 2*len(p_words&t_words)/(len(p_words)+t_words) if (len(p_words)+t_words)>0 else 0.0
-            total_recall += recall; total_em += em; total_f1 += f1
+        page_recalls, page_precisions, page_mrrs = [], [], []
+        chunk_recalls_pre, chunk_precisions_pre, chunk_mrrs_pre = [], [], []
+        chunk_recalls_post, chunk_precisions_post, chunk_mrrs_post = [], [], []
+        answer_em, answer_f1, bleu_scores, rouge_scores = [], [], [], []
+        ssr_scores = []
+
+        for q, true_ans, true_pages, true_chunks in qa_set:
+            final_ctx, pages, pre_rerank_dicts, post_rerank_dicts = retrieve_hierarchical(
+                q, p_tc, p_vc, t_c, v_c,
+                use_page=s["use_page"], use_vis=s["use_vis"],
+                dynamic_weight=s["dynamic"], return_trace=True
+            )
+            # 评估页面
+            pr = evaluate_retrieval_layer(true_pages, pages, k=3)
+            page_recalls.append(pr["Recall@k"])
+            page_precisions.append(pr["Precision@k"])
+            page_mrrs.append(pr["MRR"])
+
+            # 评估 chunk pre-rerank
+            pre_contents = [c["content"] for c in pre_rerank_dicts] if pre_rerank_dicts else []
+            cr_pre = evaluate_chunk_layer(true_chunks, pre_contents, k=5)
+            chunk_recalls_pre.append(cr_pre["Recall@k"])
+            chunk_precisions_pre.append(cr_pre["Precision@k"])
+            chunk_mrrs_pre.append(cr_pre["MRR"])
+
+            # 评估 chunk post-rerank
+            post_contents = [c["content"] for c in post_rerank_dicts] if post_rerank_dicts else []
+            cr_post = evaluate_chunk_layer(true_chunks, post_contents, k=5)
+            chunk_recalls_post.append(cr_post["Recall@k"])
+            chunk_precisions_post.append(cr_post["Precision@k"])
+            chunk_mrrs_post.append(cr_post["MRR"])
+
+            # 答案生成与评估
+            pred_ans, vp, ctx_full = generate_and_verify(q, final_ctx)
+            ans_eval = evaluate_answer(pred_ans, true_ans)
+            answer_em.append(ans_eval["EM"])
+            answer_f1.append(ans_eval["F1"])
+            bleu_scores.append(ans_eval["BLEU-1"])
+            rouge_scores.append(ans_eval["ROUGE-L"])
+
+            # 证据层 SSR
+            sentences = re.split(r'(?<=[。！？.!?])\s*', pred_ans)
+            valid_sents = [s.strip() for s in sentences if len(s.strip()) > 5]
+            ssr = evaluate_evidence_layer(valid_sents, [c["content"] for c in ctx_full])
+            ssr_scores.append(ssr)
+
         n = len(qa_set)
         results.append({
             "Setup": s["name"],
-            "Recall@5": f"{total_recall/n:.3f}",
-            "EM": f"{total_em/n:.3f}",
-            "F1": f"{total_f1/n:.3f}"
+            "Page R@3": f"{np.mean(page_recalls):.3f}",
+            "Page P@3": f"{np.mean(page_precisions):.3f}",
+            "Page MRR": f"{np.mean(page_mrrs):.3f}",
+            "Chunk pre R@5": f"{np.mean(chunk_recalls_pre):.3f}",
+            "Chunk pre P@5": f"{np.mean(chunk_precisions_pre):.3f}",
+            "Chunk pre MRR": f"{np.mean(chunk_mrrs_pre):.3f}",
+            "Chunk post R@5": f"{np.mean(chunk_recalls_post):.3f}",
+            "Chunk post P@5": f"{np.mean(chunk_precisions_post):.3f}",
+            "Chunk post MRR": f"{np.mean(chunk_mrrs_post):.3f}",
+            "Answer EM": f"{np.mean(answer_em):.3f}",
+            "Answer F1": f"{np.mean(answer_f1):.3f}",
+            "Answer BLEU-1": f"{np.mean(bleu_scores):.3f}",
+            "Answer ROUGE-L": f"{np.mean(rouge_scores):.3f}",
+            "SSR (Evidence)": f"{np.mean(ssr_scores):.3f}"
         })
     return pd.DataFrame(results)
 
+# ===================== 测试集生成 =====================
+def auto_generate_qa_with_chunks(all_data, num_text=15, num_table=10, num_figure=10):
+    qa_list = []
+    for pnum, items in all_data.items():
+        for it in items:
+            if it["type"] in ["heading", "text"] and len(qa_list) < num_text:
+                q = f"请解释第{pnum}页中关于'{it['content'][:30]}'的内容"
+                ans = it["content"][:100]
+                qa_list.append((q, ans, [pnum], [it["content"]]))
+            elif it["type"] == "table" and len(qa_list) < num_text + num_table:
+                lines = it["content"].split("\n")
+                if len(lines) >= 2:
+                    cells = [c.strip() for c in lines[1].split("|") if c.strip()]
+                    if len(cells) >= 2:
+                        q = f"在第{pnum}页的表格中，{cells[0]} 对应的数值是多少？"
+                        ans = cells[1]
+                    else:
+                        q = f"表格 {pnum} 显示了什么？"
+                        ans = lines[1][:100]
+                else:
+                    q = f"第{pnum}页的表格内容是什么？"
+                    ans = it["content"][:100]
+                qa_list.append((q, ans, [pnum], [it["content"]]))
+            elif it["type"] == "figure" and len(qa_list) < num_text + num_table + num_figure:
+                caption = it["content"].replace("[IMAGE_CAPTION]\n", "").replace("[CHART_STRUCTURED]\n", "")[:100]
+                q = f"描述第{pnum}页的图像内容。"
+                ans = caption
+                qa_list.append((q, ans, [pnum], [it["content"]]))
+    return qa_list
+
+# ===================== 端到端可用性评估（人工） =====================
+def collect_human_feedback():
+    if "feedback" not in st.session_state:
+        st.session_state.feedback = []
+    with st.sidebar:
+        st.subheader("📝 端到端可用性评估")
+        score = st.slider("满意度评分（1-5）", 1, 5, 3, key="satisfaction")
+        safety = st.radio("回答是否安全/合规？", ["是", "否（包含错误或有害内容）"], key="safety")
+        if st.button("提交评价"):
+            if st.session_state.get("last_answer"):
+                st.session_state.feedback.append({
+                    "question": st.session_state.get("last_question", ""),
+                    "answer": st.session_state.last_answer,
+                    "score": score,
+                    "safety": safety
+                })
+                st.success("评价已记录")
+            else:
+                st.warning("请先生成一次回答")
+
 # ===================== Streamlit UI =====================
-st.set_page_config(layout="wide", page_title="RAG 多模态问答")
-st.title("📚 多模态文档问答（开题对齐·稳定版）")
+st.set_page_config(layout="wide", page_title="RAG 多模态问答（评估版）")
+st.title("📚 多模态文档问答（含检索-答案-证据三层评估）")
+
+if "last_answer" not in st.session_state:
+    st.session_state.last_answer = ""
+if "last_question" not in st.session_state:
+    st.session_state.last_question = ""
 
 col1, col2, col3 = st.columns([1, 1.8, 1.2])
 
@@ -622,28 +777,34 @@ with col1:
                         data[i+1] = extract_layout_structured(p, i+1)
                     doc.close()
                     build_index(data)
+                    st.session_state.all_data = data
                     st.session_state.pdf_path = tmp.name
                     st.session_state.hash = hb
             st.success("✅ 索引就绪")
 
     st.divider()
-    st.subheader("📊 实验评测")
-    if st.button("🚀 运行消融实验", use_container_width=True):
+    st.subheader("📊 消融实验（三层评估）")
+    if st.button("🚀 运行完整消融实验", use_container_width=True):
         if st.session_state.get("hash"):
             p_tc = get_chroma().get_collection("page_text_idx")
             p_vc = get_chroma().get_collection("page_visual_idx")
             t_c  = get_chroma().get_collection("text_idx")
             v_c  = get_chroma().get_collection("visual_idx")
-            qa = [
-                ("表格中2023年营收是多少？", "2023年营收为500亿元。", [3]),
-                ("图2展示了什么趋势？", "图2展示了用户增长呈指数上升趋势。", [5]),
-                ("对比表1和表2的利润率", "表1利润率15%，表2为12%，表1更高。", [3,4])
-            ]
-            st.info("⚠️ 仅3条示例QA，正式实验请扩充至50+条。")
-            res_df = run_ablation_study(qa, p_tc, p_vc, t_c, v_c)
+            if "all_data" in st.session_state and len(st.session_state.all_data) > 0:
+                qa = auto_generate_qa_with_chunks(st.session_state.all_data, num_text=5, num_table=3, num_figure=2)
+            else:
+                qa = [("表格中2023年营收是多少？", "2023年营收为500亿元。", [3], ["营收500亿"])]
+            st.info(f"📋 测试集规模：{len(qa)} 条（自动生成，建议人工校验）")
+            with st.spinner("🧪 正在运行消融实验（含检索、答案、证据三层评估）..."):
+                res_df = run_full_ablation_study(qa, p_tc, p_vc, t_c, v_c)
             st.dataframe(res_df, use_container_width=True)
+            st.success("实验完成，可在下方查看端到端反馈收集")
         else:
             st.warning("请先上传PDF")
+
+    st.divider()
+    st.subheader("📈 端到端可用性评价")
+    collect_human_feedback()
 
 with col2:
     st.header("💬 智能问答")
@@ -653,13 +814,15 @@ with col2:
         if not st.session_state.get("hash"):
             st.error("请先上传PDF"); st.stop()
         st.chat_message("user").write(q)
-        with st.spinner("🔍 双通道检索 + 重排序 + 批量核实..."):
+        st.session_state.last_question = q
+        with st.spinner("🔍 双通道检索 + 重排序 + 事实核查..."):
             p_tc = get_chroma().get_collection("page_text_idx")
             p_vc = get_chroma().get_collection("page_visual_idx")
             t_c  = get_chroma().get_collection("text_idx")
             v_c  = get_chroma().get_collection("visual_idx")
-            ctx = retrieve_hierarchical(q, p_tc, p_vc, t_c, v_c)
+            ctx = retrieve_hierarchical(q, p_tc, p_vc, t_c, v_c)   # 不需要trace，只取最终上下文
             ans, vp, ctx_full = generate_and_verify(q, ctx)
+            st.session_state.last_answer = ans
             hist = st.session_state.get("hist", [])
             hist.extend([{"role":"user","content":q}, {"role":"assistant","content":ans,"ctx":ctx_full,"vp":vp}])
             st.session_state.hist = hist
