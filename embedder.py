@@ -1,3 +1,5 @@
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from transformers import CLIPProcessor, CLIPModel
 import torch

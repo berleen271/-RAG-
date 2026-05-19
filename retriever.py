@@ -1,3 +1,5 @@
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 def retrieve_hierarchical(query, p_tc, p_vc, t_c, v_c, embedder, reranker,
                           use_page=True, use_vis=True, dynamic_weight=True, top_k=20,
                           return_trace=False):

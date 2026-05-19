@@ -1,3 +1,5 @@
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 import fitz
 import re
 import numpy as np
@@ -174,12 +176,34 @@ def extract_layout_structured(page, page_num, zoom, img_manager, clip_proc, clip
             if json_text:
                 content = f"[CHART_STRUCTURED]\n{json_text}"
             else:
-                content = "[CHART]（未能解析）"
-        elements.append({
-            "type": "figure", "page": page_num,
-            "content": content,
-            "bbox": bbox, "img_path": img_path
-        })
+                # 普通图片：生成文字描述
+                b64 = pil_to_b64(crop)
+                caption_text = None
+                try:
+                    resp = requests.post(
+                        QWEN_URL_VL,
+                        headers={"Authorization": f"Bearer {QWEN_API_KEY}", "Content-Type": "application/json"},
+                        json={
+                            "model": "qwen-vl-plus",
+                            "input": {
+                                "messages": [{
+                                    "role": "user",
+                                    "content": [
+                                        {"image": f"data:image/png;base64,{b64}"},
+                                        {"text": "用中文简要描述这张图像的内容、对象关系和关键信息，限100字以内。"}
+                                    ]
+                                }]
+                            }
+                        },
+                        timeout=8
+                    )
+                    caption_text = resp.json()["output"]["choices"][0]["message"]["content"].strip()
+                except:
+                    pass
+                if caption_text:
+                    content = f"[IMAGE_CAPTION]\n{caption_text}"
+                else:
+                    content = "[IMAGE]（未能生成描述）"
     return elements
 
 # 导入工具函数需在函数内部或顶层，这里从utils导入

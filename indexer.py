@@ -1,3 +1,5 @@
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 import numpy as np
 from config import CHROMA_PATH
 from chromadb import PersistentClient
@@ -16,7 +18,8 @@ def build_page_vectors(page_items, embedder, img_manager):
             img = img_manager.load(item["img_path"])
             if img:
                 clip_vecs.append(embedder.encode_image_clip([img])[0])
-            if not item["content"].startswith("[TABLE]") and not item["content"].startswith("[CHART"):
+            if not item["content"].startswith("[TABLE]") and not item["content"].startswith("[CHART") \
+                    and not item["content"].startswith("[IMAGE_CAPTION]") and item["content"] != "[IMAGE]":
                 st_vecs.append(embedder.encode_text_st([item["content"]])[0])
     p_st = np.mean(st_vecs, axis=0).tolist() if st_vecs else [0.0]*embedder.st_dim
     p_clip = np.mean(clip_vecs, axis=0).tolist() if clip_vecs else [0.0]*embedder.clip_dim

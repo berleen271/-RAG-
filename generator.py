@@ -1,3 +1,5 @@
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 import re, requests
 from config import QWEN_API_KEY, QWEN_URL_TEXT
 from fact_checker import batch_fact_check
@@ -17,6 +19,7 @@ def generate_answer(query, context):
     except:
         return "生成出错"
 
+
 def verify_and_clean(ans, context, embedder):
     sentences = re.split(r'(?<=[。！？.!?])\s*', ans)
     valid_sents = [s.strip() for s in sentences if len(s.strip()) > 5]
@@ -30,10 +33,14 @@ def verify_and_clean(ans, context, embedder):
         else:
             verified.append(sent)
     clean_ans = " ".join(verified)
-    page_pattern = r"\[(?:Page|P|page|p)\s*:?\s*(\d+)\]"
+
+    # 更新后的页码提取正则
+    page_pattern = r"\[(?:text|visual|table|figure)?\s*\|?\s*[Pp](?:age)?\s*:?\s*(\d+)\]"
     cited_pages = set(map(int, re.findall(page_pattern, ans)))
+
     valid_pages = set(c["page"] for c in context)
     verified_pages = [p for p in cited_pages if p in valid_pages]
+
     if hallucination:
         clean_ans += "\n\n*(系统校验：部分语句未被证据支持)*"
     return clean_ans, verified_pages, context

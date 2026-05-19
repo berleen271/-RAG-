@@ -1,3 +1,5 @@
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 import re, json, requests
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
