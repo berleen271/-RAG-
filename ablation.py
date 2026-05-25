@@ -25,11 +25,13 @@ def run_ablation_study(qa_set, p_tc, p_vc, t_c, v_c, embedder, reranker):
         ssr_scores = []
 
         for q, true_ans, true_pages, true_chunks in qa_set:
-            final_ctx, pages, pre_dicts, post_dicts = retrieve_hierarchical(
+            (final_ctx, pages, pre_contents, pre_scores,
+             post_contents, post_scores, pre_dicts, post_dicts) = retrieve_hierarchical(
                 q, p_tc, p_vc, t_c, v_c, embedder, reranker,
                 use_page=s["use_page"], use_vis=s["use_vis"],
                 dynamic_weight=s["dynamic"], return_trace=True
             )
+
             pr = evaluate_retrieval_layer(true_pages, pages, k=3)
             page_recalls.append(pr["Recall@k"]); page_precisions.append(pr["Precision@k"]); page_mrrs.append(pr["MRR"])
 

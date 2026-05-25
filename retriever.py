@@ -20,7 +20,7 @@ def retrieve_hierarchical(query, p_tc, p_vc, t_c, v_c, embedder, reranker,
                          [m["page"] for m in v_all["metadatas"][0]])
     if not cand_pages:
         if return_trace:
-            return [], [], [], []
+            return [], [], [], [], [], [], [], []
         return []
 
     t_res = t_c.query(query_embeddings=[q_st], n_results=top_k, where={"page":{"$in":list(cand_pages)}})
@@ -69,5 +69,12 @@ def retrieve_hierarchical(query, p_tc, p_vc, t_c, v_c, embedder, reranker,
     final_context = pre_rerank_dicts[:6]
 
     if return_trace:
-        return final_context, list(cand_pages), merged[:top_k], final_context
+        # 收集 pre-rerank 的得分和内容（merged 已排序）
+        pre_scores = [c["score"] for c in merged[:top_k]]
+        pre_contents = [c["content"] for c in merged[:top_k]]
+        # 收集 post-rerank 的得分和内容（pre_rerank_dicts 前6个）
+        post_scores = [c["score"] for c in pre_rerank_dicts[:6]]
+        post_contents = [c["content"] for c in pre_rerank_dicts[:6]]
+        return (final_context, list(cand_pages), pre_contents, pre_scores,
+                post_contents, post_scores, merged[:top_k], final_context)
     return final_context
