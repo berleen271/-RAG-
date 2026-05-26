@@ -1,6 +1,4 @@
 # -RAG-
-基于分层索引与双模态表示增强的多模态RAG在复杂文档问答中的应用研究
-[开题报告.docx](https://github.com/user-attachments/files/27899447/default.docx)
 # 基于分层索引与双模态表示增强的多模态RAG在复杂文档问答中的应用研究
 
 > 110实验室前沿技术分组研究课题 | 综合应用类项目  
@@ -8,18 +6,18 @@
 
 ---
 
-# 📌 项目概述
+## 📌 项目概述
 
-## 课题信息
+### 课题信息
 
-|项目|内容|
-|--|--|
-|课题名称|基于分层索引与双模态表示增强的多模态RAG在复杂文档问答中的应用研究|
-|项目类型|综合应用类|
-|研究方向|多模态RAG（Multimodal Retrieval-Augmented Generation）|
-|应用场景|复杂文档智能问答|
-|开发形式|Web交互式系统|
-|前端框架|Streamlit|
+| 项目       | 内容                                                         |
+| ---------- | ------------------------------------------------------------ |
+| 课题名称   | 基于分层索引与双模态表示增强的多模态RAG在复杂文档问答中的应用研究 |
+| 项目类型   | 综合应用类                                                   |
+| 研究方向   | 多模态RAG（Multimodal Retrieval-Augmented Generation）        |
+| 应用场景   | 复杂文档智能问答                                             |
+| 开发形式   | Web交互式系统                                                |
+| 前端框架   | Streamlit                                                    |
 
 项目针对传统文本RAG在复杂PDF场景中的局限，提出一种基于：
 
@@ -32,161 +30,55 @@
 
 ---
 
-# 🎯 研究背景与研究目标
+## 🎯 研究背景与研究目标
 
-## 研究背景
+### 研究背景
 
 随着大模型技术的发展，RAG（Retrieval-Augmented Generation）已成为提升知识问答能力的重要方法。
 
 但在复杂文档场景（论文、财务报表、技术文档、法律文件）中仍存在：
 
-### ① 检索粒度单一
+**① 检索粒度单一**  
+传统RAG：文档 → Chunk → 向量检索，存在跨页信息缺失、长文召回能力弱、局部上下文丢失的问题。
 
-传统RAG：
+**② 图文信息割裂**  
+复杂PDF包含文本、表格、图像、图表、版面结构，传统文本RAG无法有效处理图表趋势分析、表格数据问答、图文联合理解。
 
-```text
-文档
-↓
-Chunk
-↓
-向量检索
+**③ 生成结果可解释性不足**  
+现有方案普遍存在幻觉问题、无法定位来源、缺乏事实验证。
+
+### 研究目标
+
+1. 构建复杂文档多模态RAG框架，支持文本、表格、图像、图表的统一处理。  
+2. 设计分层检索机制（页级检索→块级检索→重排序），提高召回率。  
+3. 实现双模态表示增强，采用 Sentence-BERT（文本）和 CLIP（视觉）构建统一表示空间。  
+4. 实现可溯源问答，生成答案自动关联页码、图号、表号。  
+5. 完成可运行系统，输出 Web 演示系统、实验报告和消融实验分析。
+
+---
+
+## 🔍 研究意义
+
+**理论意义**  
+- 推动RAG向多模态方向发展  
+- 验证分层检索有效性  
+- 探索图文联合检索机制  
+
+**实践意义**  
+应用于学术论文分析、财务报表理解、法律文书问答、技术手册检索等场景。
+
+---
+
+## 🚀 技术路线
+
+### 整体Workflow
+
 ```
-
-存在：
-
-- 跨页信息缺失
-- 长文召回能力弱
-- 局部上下文丢失
-
----
-
-### ② 图文信息割裂
-
-复杂PDF通常包含：
-
-- 文本
-- 表格
-- 图像
-- 图表
-- 版面结构
-
-传统文本RAG无法有效处理：
-
-```text
-图表趋势分析
-表格数据问答
-图文联合理解
-```
-
----
-
-### ③ 生成结果可解释性不足
-
-现有方案普遍存在：
-
-- 幻觉问题
-- 无法定位来源
-- 缺乏事实验证
-
----
-
-## 研究目标
-
-本研究目标：
-
-### （1）构建复杂文档多模态RAG框架
-
-支持：
-
-- 文本
-- 表格
-- 图像
-- 图表
-
-统一处理。
-
----
-
-### （2）设计分层检索机制
-
-构建：
-
-```text
-页级检索
-↓
-
-块级检索
-↓
-
-重排序
-```
-
-提高召回率。
-
----
-
-### （3）实现双模态表示增强
-
-采用：
-
-- Sentence-BERT（文本）
-- CLIP（视觉）
-
-构建统一表示空间。
-
----
-
-### （4）实现可溯源问答
-
-生成答案自动关联：
-
-- 页码
-- 图号
-- 表号
-
----
-
-### （5）完成可运行系统
-
-输出：
-
-- Web演示系统
-- 实验报告
-- 消融实验分析
-
----
-
-# 🔍 研究意义
-
-## 理论意义
-
-- 推动RAG向多模态方向发展
-- 验证分层检索有效性
-- 探索图文联合检索机制
-
-## 实践意义
-
-应用于：
-
-- 学术论文分析
-- 财务报表理解
-- 法律文书问答
-- 技术手册检索
-
----
-
-# 🚀 技术路线
-
-## 整体Workflow
-
-```text
 PDF上传
     ↓
-版面解析
-(PyMuPDF+OCR)
+版面解析 (PyMuPDF+OCR)
     ↓
-语义分块
-(Text/Table/Figure)
+语义分块 (Text/Table/Figure)
     ↓
 双通道编码
     ├─ SentenceTransformer
@@ -209,388 +101,287 @@ Qwen答案生成
 
 ---
 
-# ⚙️ 系统架构
+## ⚙️ 系统架构
 
-|层级|核心组件|功能|
-|--|--:|--|
-|文档解析层|PyMuPDF + OCR|提取文本、表格、图像|
-|表示层|SentenceTransformer + CLIP|文本与视觉编码|
-|索引层|ChromaDB|页级与块级索引|
-|检索层|Hierarchical Retrieval|多阶段检索|
-|重排序层|BAAI-reranker|相关性排序|
-|生成层|Qwen2.5|答案生成|
-|验证层|事实校验模块|减少幻觉|
-|展示层|Streamlit|交互系统|
+| 层级         | 核心组件                 | 功能                   |
+| ------------ | ------------------------ | ---------------------- |
+| 文档解析层   | PyMuPDF + OCR            | 提取文本、表格、图像   |
+| 表示层       | SentenceTransformer + CLIP | 文本与视觉编码         |
+| 索引层       | ChromaDB                 | 页级与块级索引         |
+| 检索层       | Hierarchical Retrieval   | 多阶段检索             |
+| 重排序层     | BAAI-reranker            | 相关性排序             |
+| 生成层       | Qwen2.5                  | 答案生成               |
+| 验证层       | 事实校验模块             | 减少幻觉               |
+| 展示层       | Streamlit                | 交互系统               |
 
 ---
 
-# 🧠 核心方法设计
+## 🧠 核心方法设计
 
-## 1. 文档解析
+### 1. 文档解析
+使用 `extract_layout_structured()` 提取文本块、表格、图片、标题、OCR内容，输出结构化数据（含类型、内容、边界框）。
 
-PDF解析：
+### 2. 双模态表示
+- 文本：SentenceTransformer → 384维向量  
+- 视觉：CLIP → 768维向量  
 
-```python
-extract_layout_structured()
+### 3. 分层检索
+- 第一阶段：页级粗检索（Question → Page Top-3）  
+- 第二阶段：Chunk精检索（Page → Chunk Top-K）  
+- 第三阶段：CrossEncoder重排序  
+
+### 4. 动态权重机制
+根据问题类型调整文本与视觉权重：
+
+| 问题类型   | 文本权重 | 视觉权重 |
+| ---------- | -------- | -------- |
+| 普通文本   | 0.6      | 0.4      |
+| 表格问题   | 0.3      | 0.7      |
+| 图表趋势   | 0.2      | 0.8      |
+
+### 5. 事实校验
+一级：LLM 事实判断；二级：余弦相似度验证。输出 Supported Sentence Ratio (SSR)。
+
+---
+
+## 📊 实验设计
+
+### 数据集构建
+系统自动从 PDF 构造 QA 数据，问题类型覆盖：
+- 文本类：如“请解释第3页关于神经网络结构的内容”  
+- 表格类：如“2023年营收是多少？”  
+- 图像类：如“描述第8页图像内容”  
+
+推荐实验规模：文本问题 50 条、表格问题 25 条、图像问题 25 条，共 100 条 QA 样本。
+
+### 消融实验设计
+四组实验，逐步添加模块：
+
+| 实验组               | 页级检索 | 视觉检索 | 动态权重 |
+| -------------------- | -------- | -------- | -------- |
+| Baseline             | ×        | ×        | ×        |
+| ExpA (+Hierarchical) | √        | ×        | ×        |
+| ExpB (+Visual)       | √        | √        | ×        |
+| ExpC (+Dynamic)      | √        | √        | √        |
+
+目的：验证分层检索、多模态融合、动态权重的贡献。
+
+---
+
+## 📈 评估指标
+
+- **页面检索层**：Recall@3, Precision@3, MRR  
+- **Chunk检索层**（重排序前后）：Recall@5, Precision@5, MRR  
+- **答案层**：EM (Exact Match), F1, BLEU-1, ROUGE-L  
+- **证据层**：SSR (Supported Sentence Ratio)  
+- **用户端到端评价**：满意度（1~5）、安全性  
+
+### 消融实验结果示例
+
+| Setup   | Page R@3 | Chunk post R@5 | EM   | F1   | ROUGE-L | SSR  |
+| ------- | -------- | -------------- | ---- | ---- | ------- | ---- |
+| Baseline| 0.45     | 0.35           | 0.10 | 0.40 | 0.35    | 0.65 |
+| ExpA    | 0.62     | 0.53           | 0.30 | 0.55 | 0.52    | 0.73 |
+| ExpB    | 0.70     | 0.68           | 0.45 | 0.61 | 0.60    | 0.77 |
+| ExpC    | 0.75     | 0.80           | 0.52 | 0.65 | 0.68    | 0.80 |
+
+---
+
+## 📂 项目结构
+
 ```
-
-提取：
-
-- 文本块
-- 表格
-- 图片
-- 标题
-- OCR内容
-
-输出：
-
-```python
-{
-"type":"table",
-"content":"...",
-"bbox":...
-}
-```
-
----
-
-## 2. 双模态表示
-
-文本：
-
-```python
-SentenceTransformer
-```
-
-视觉：
-
-```python
-CLIP
-```
-
-向量：
-
-```text
-文本向量：384维
-视觉向量：768维
-```
-
----
-
-## 3. 分层检索
-
-采用：
-
-### 第一阶段：页级粗检索
-
-目的：
-
-快速缩小搜索范围。
-
-```text
-Question
-↓
-
-Page Top-3
-```
-
----
-
-### 第二阶段：Chunk精检索
-
-目的：
-
-找到局部相关证据。
-
-```text
-Page
-↓
-
-Chunk Top-K
-```
-
----
-
-### 第三阶段：重排序
-
-采用：
-
-```python
-CrossEncoder
-```
-
-提升最终排序质量。
-
----
-
-## 4. 动态权重机制
-
-根据问题类型调整：
-
-|问题类型|文本权重|视觉权重|
-|--|--:|--:|
-|普通文本|0.6|0.4|
-|表格问题|0.3|0.7|
-|图表趋势|0.2|0.8|
-
----
-
-## 5. 事实校验
-
-采用：
-
-### 一级：
-
-LLM事实判断
-
-### 二级：
-
-余弦相似度验证
-
-输出：
-
-```text
-Supported Sentence Ratio (SSR)
-```
-
----
-
-# 📊 实验设计
-
-## 数据集构建
-
-系统自动从PDF构造QA数据：
-
-### 文本类
-
-例：
-
-```text
-请解释第3页关于神经网络结构的内容
-```
-
----
-
-### 表格类
-
-例：
-
-```text
-2023年营收是多少？
-```
-
----
-
-### 图像类
-
-例：
-
-```text
-描述第8页图像内容
-```
-
-推荐实验规模：
-
-|类别|数量|
-|--|--:|
-|文本问题|50|
-|表格问题|25|
-|图像问题|25|
-
-总计：
-
-```text
-100 QA样本
-```
-
----
-
-# 🧪 消融实验设计
-
-代码中共设计四组实验：
-
-|实验组|页级检索|视觉检索|动态权重|
-|--|--:|--:|--:|
-|Baseline|×|×|×|
-|ExpA (+Hierarchical)|√|×|×|
-|ExpB (+Visual)|√|√|×|
-|ExpC (+Dynamic Weight)|√|√|√|
-
-目的：
-
-验证：
-
-- 分层检索贡献
-- 多模态贡献
-- 动态权重贡献
-
----
-
-# 📈 评估指标
-
-## ① 页面检索层
-
-### Recall@3
-
-```math
-Recall@3=
-\frac{|Relevant∩Retrieved|}
-{|Relevant|}
-```
-
-### Precision@3
-
-### MRR
-
----
-
-## ② Chunk检索层
-
-重排序前：
-
-- Recall@5
-- Precision@5
-- MRR
-
-重排序后：
-
-- Recall@5
-- Precision@5
-- MRR
-
----
-
-## ③ 答案层
-
-### EM
-
-Exact Match
-
-### F1
-
-词级匹配
-
-### BLEU-1
-
-### ROUGE-L
-
----
-
-## ④ 证据层
-
-SSR：
-
-```math
-SSR=
-\frac{Supported\ Sentences}
-{Total\ Sentences}
-```
-
----
-
-## ⑤ 用户端到端评价
-
-评价内容：
-
-- 满意度（1~5）
-- 安全性
-
----
-
-# 📉 消融实验结果示例
-
-|Setup|Page R@3|Chunk post R@5|EM|F1|ROUGE-L|SSR|
-|--|--:|--:|--:|--:|--:|--:|
-|Baseline|0.45|0.35|0.10|0.40|0.35|0.65|
-|ExpA|0.62|0.53|0.30|0.55|0.52|0.73|
-|ExpB|0.70|0.68|0.45|0.61|0.60|0.77|
-|ExpC|0.75|0.80|0.52|0.65|0.68|0.80|
-
----
-
-# 📂 项目结构
-
-```text
 project/
-│
 ├── app.py
 ├── requirements.txt
+├── environment.yml
 ├── chroma_db/
 ├── temp_images/
 ├── data/
-├── README.md
-│
+│   ├── raw/
+│   ├── processed/
+│   ├── test_qa.json
+│   └── README.md
 ├── models/
-│      ├── SentenceTransformer
-│      ├── CLIP
-│      └── CrossEncoder
-│
-└── results/
-       ├── ablation.csv
-       └── evaluation.csv
+│   ├── SentenceTransformer
+│   ├── CLIP
+│   └── CrossEncoder
+├── results/
+│   ├── ablation.csv
+│   └── evaluation.csv
+├── scripts/
+│   └── preprocess.py
+├── tests/
+│   └── test_retrieval.py
+└── README.md
 ```
 
 ---
 
-# 💻 运行环境
+## 💻 运行环境
 
-## 软件环境
+**软件环境**  
+Python 3.10, PyTorch, Transformers, SentenceTransformer, ChromaDB, Streamlit, OpenCV, PyMuPDF
 
-```text
-Python 3.10
-PyTorch
-Transformers
-SentenceTransformer
-ChromaDB
-Streamlit
-OpenCV
-PyMuPDF
-```
-
-## 硬件环境
-
-建议：
-
-```text
-CPU：Intel i7+
-GPU：RTX3060及以上
-RAM：16GB+
-```
+**硬件环境**  
+CPU：Intel i7+；GPU：RTX3060 及以上；RAM：16GB+
 
 ---
 
-# 🛠 快速运行
+## 🛠 快速运行
 
 ```bash
 git clone https://github.com/your-name/project.git
-
 cd project
-
-pip install -r requirements.txt
-
+pip install -r requirements.txt   # 或使用 conda env create -f environment.yml
 streamlit run app.py
 ```
 
 ---
 
-# 📚 参考文献
+## 🔬 数据集与可复现性
 
-[1] Huang et al. MDocAgent, 2025
+### 1. 数据集来源与构建
 
-[2] Suri et al. VisDoM, NAACL 2025
+**文档来源**  
+实验使用公开金融公告 PDF 作为测试样例，当前核心文档为：  
+- 贵州茅台《关于以集中竞价交易方式回购公司股份的回购报告书》  
+- 来源：上海证券交易所官网 (http://www.sse.com.cn)，下载日期 2026-03-10  
 
-[3] Dong et al. Benchmarking Retrieval-Augmented Multimodal Generation, NeurIPS 2025
+多文档实验可扩展至同类型公告，所有文档信息记录于 `data/raw/README.md`。
 
-[4] UNIDOC-BENCH, 2025
+**问答对构建流程**  
+采用“自动生成 + 人工校验”策略，覆盖文本、表格、图表三类问题：  
+1. **候选生成**：对每个文本块、表格 Markdown、图表描述，调用 Qwen2.5 生成 2~3 个候选问题，要求答案必须能从该块中推理得到。  
+2. **人工筛查**：两名研究生独立审查，删除答案模糊、跨文档或无法从单一块确定的问题，并补充边界案例。  
+3. **标准答案标注**：每条数据包含问题、参考答案、证据类型（text/table/figure）、证据页码、证据片段。
 
-[5] RAG-Anything, 2025
+最终形成的标准测试集包含 **20 条问答对**（可扩展至 100 条），分布如下：
+
+| 类型   | 数量 | 示例问题                         |
+| ------ | ---- | -------------------------------- |
+| 文本类 | 12   | “回购价格上限是多少？”           |
+| 表格类 | 5    | “2024年度营业收入同比增长多少？”  |
+| 图表类 | 3    | “图2中净利润的变动趋势如何？”    |
+| **总计** | 20 |                                  |
+
+完整标注文件见 `data/test_qa.json`。
+
+### 2. 数据预处理细节
+
+所有预处理步骤已封装为 `scripts/preprocess.py`，可一键复现。
+
+**2.1 文档解析**  
+- 文本：PyMuPDF (fitz) 提取段落，过滤页眉页脚。  
+- 表格：pdfplumber 提取表格，转为 Markdown 格式，并附带前 100 字符上下文。  
+- 图表：fitz 截取图像区域，保存至 `temp_images/`，调用 glm-4v 生成结构化描述。
+
+**2.2 文本分块**  
+- 工具：LangChain RecursiveCharacterTextSplitter  
+- 参数：chunk_size=512, chunk_overlap=64  
+- 按页组织，保留页码元数据
+
+**2.3 表格序列化**  
+表格转为 Markdown，嵌入标题与上下文，例如：  
+```markdown
+## 表3 主要财务指标
+| 指标       | 2023年 | 2024年 | 变动比例 |
+|------------|--------|--------|----------|
+| 营业收入   | 1500亿 | 1741亿 | +16.1%   |
+上下文：该表摘自第15页，展示了公司近两年主要财务数据...
+```
+
+**2.4 图表描述生成**  
+每张图表调用多模态模型生成统一描述，格式为：  
+> “该图为[图表标题]，展示了[趋势/对比/构成]，关键数据点包括：……，整体呈[上升/下降/波动]趋势。”  
+描述文本存入视觉索引，与 CLIP 图像向量共同用于检索。
+
+**2.5 向量化与索引**  
+- 文本编码：`sentence-transformers/all-MiniLM-L6-v2` (384维)  
+- 视觉编码：`ViT-B/32` CLIP 模型 (768维)  
+- 存储引擎：ChromaDB，分别建立页级和块级 collection
+
+### 3. 数据文件清单
+
+```
+data/
+├── raw/                     # 原始 PDF（或下载说明）
+├── processed/
+│   ├── pages/               # 每页文本
+│   ├── chunks_text.json     # 文本块列表
+│   ├── tables_markdown.json # 表格数据
+│   ├── charts_descriptions.json # 图表描述
+│   └── metadata.json        # 文档元信息
+├── test_qa.json             # 标准测试集（20 条）
+└── README.md                # 数据说明
+```
+
+`test_qa.json` 样例：
+```json
+[
+  {
+    "id": 1,
+    "question": "本次回购的资金总额上限是多少？",
+    "answer": "不超过人民币30亿元",
+    "evidence_page": 3,
+    "evidence_type": "text",
+    "evidence_snippet": "回购资金总额不低于人民币20亿元（含）且不超过人民币30亿元（含）"
+  }
+]
+```
+
+### 4. 完整复现步骤
+
+**4.1 环境准备**  
+```bash
+conda env create -f environment.yml   # 推荐
+conda activate mm-rag
+```
+或使用 `pip install -r requirements_lock.txt`。
+
+**4.2 数据准备与预处理**  
+1. 将目标 PDF 放入 `data/raw/` 文件夹。  
+2. 运行预处理脚本：  
+   ```bash
+   python scripts/preprocess.py --pdf_path data/raw/回购报告书.pdf
+   ```  
+   脚本将自动完成解析、分块、向量化，并生成初始问答候选集。  
+3. 人工校对 `data/test_qa_candidates.json`，保留符合要求的条目，另存为 `data/test_qa.json`。
+
+**4.3 启动系统**  
+```bash
+streamlit run app.py
+```  
+浏览器打开 `http://localhost:8501`，上传 PDF 即可进行交互问答，并查看证据溯源与可视化。
+
+**4.4 运行消融实验**  
+```bash
+python run_ablation.py --qa_file data/test_qa.json --output results/ablation.csv
+```  
+输出结果保存至 `results/ablation.csv`。
+
+**4.5 使用示例数据（若无原始 PDF）**  
+若因版权原因无法提供原始 PDF，项目提供脱敏示例数据：  
+- `data/processed/` 下包含预处理的文本块、表格、图表描述  
+- `data/test_qa.json` 可直接用于评估  
+无需原始 PDF 即可运行完整的消融实验和 Streamlit 演示。
+
+### 5. 代码健壮性说明
+- 预处理脚本包含异常处理（空 PDF、损坏文件、无表格/图表等）。  
+- `tests/` 目录提供基础单元测试，验证检索函数对空输入、缺失参数的正确响应。  
+- 系统通过 Streamlit 界面提供手动集成测试入口，可交互式验证各模块功能。
 
 ---
 
-# 📝 项目说明
+## 📚 参考文献
 
-本项目仅用于：
+[1] Huang et al. MDocAgent, 2025  
+[2] Suri et al. VisDoM, NAACL 2025  
+[3] Dong et al. Benchmarking Retrieval-Augmented Multimodal Generation, NeurIPS 2025  
+[4] UNIDOC-BENCH, 2025  
+[5] RAG-Anything, 2025  
 
-- 学术研究
-- 教学实验
-- 技术学习
+---
+
+## 📝 项目说明
+
+本项目仅用于学术研究、教学实验和技术学习。
