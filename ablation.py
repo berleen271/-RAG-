@@ -9,6 +9,7 @@ from evaluation import (evaluate_retrieval_layer, evaluate_chunk_layer,
                         evaluate_answer, evaluate_evidence_layer)
 from fact_checker import batch_fact_check
 
+
 def run_ablation_study(qa_set, p_tc, p_vc, t_c, v_c, embedder, reranker):
     setups = [
         {"name": "Baseline (Flat Text)",      "use_page": False, "use_vis": False, "dynamic": False},
@@ -32,26 +33,49 @@ def run_ablation_study(qa_set, p_tc, p_vc, t_c, v_c, embedder, reranker):
                 dynamic_weight=s["dynamic"], return_trace=True
             )
 
+            # ---------- 检索层评估 ----------
             pr = evaluate_retrieval_layer(true_pages, pages, k=3)
             page_recalls.append(pr["Recall@k"]); page_precisions.append(pr["Precision@k"]); page_mrrs.append(pr["MRR"])
 
-            pre_contents = [c["content"] for c in pre_dicts] if pre_dicts else []
-            cr_pre = evaluate_chunk_layer(true_chunks, pre_contents, k=5)
+            pre_contents_ = [c["content"] for c in pre_dicts] if pre_dicts else []
+            cr_pre = evaluate_chunk_layer(true_chunks, pre_contents_, k=5)
             chunk_recalls_pre.append(cr_pre["Recall@k"]); chunk_precisions_pre.append(cr_pre["Precision@k"]); chunk_mrrs_pre.append(cr_pre["MRR"])
 
-            post_contents = [c["content"] for c in post_dicts] if post_dicts else []
-            cr_post = evaluate_chunk_layer(true_chunks, post_contents, k=5)
+            post_contents_ = [c["content"] for c in post_dicts] if post_dicts else []
+            cr_post = evaluate_chunk_layer(true_chunks, post_contents_, k=5)
             chunk_recalls_post.append(cr_post["Recall@k"]); chunk_precisions_post.append(cr_post["Precision@k"]); chunk_mrrs_post.append(cr_post["MRR"])
 
+            # ---------- 答案生成 + 回退 ----------
             ans = generate_answer(q, final_ctx)
             clean_ans, vp, ctx_full = verify_and_clean(ans, final_ctx, embedder)
+
+            if not clean_ans or len(clean_ans.strip()) < 3:
+                clean_ans = ans
+                vp = list(set(c["page"] for c in final_ctx))
+
+            # ---------- 调试打印 ----------
+            print(f"\n{'='*60}")
+            print(f"Setup: {s['name']}")
+            print(f"Q: {q}")
+            print(f"True Answer: {true_ans[:80]}")
+            print(f"Generated Answer: {ans[:80]}")
+            print(f"Cleaned Answer: {clean_ans[:80]}")
+            print(f"Verified Pages: {vp}")
+
+            # ---------- 答案层评估 ----------
             ans_eval = evaluate_answer(clean_ans, true_ans)
+            print(f"EM={ans_eval['EM']}, F1={ans_eval['F1']}")
             answer_em.append(ans_eval["EM"]); answer_f1.append(ans_eval["F1"])
             bleu_scores.append(ans_eval["BLEU-1"]); rouge_scores.append(ans_eval["ROUGE-L"])
 
+            # ---------- 证据层评估 ----------
             sentences = re.split(r'(?<=[。！？.!?])\s*', clean_ans)
-            valid_sents = [s.strip() for s in sentences if len(s.strip()) > 5]
+            valid_sents = [s.strip() for s in sentences if len(s.strip()) > 2]
+            if not valid_sents:
+                valid_sents = [clean_ans.strip()] if clean_ans.strip() else []
+            print(f"Valid Sentences: {valid_sents}")
             ssr = evaluate_evidence_layer(valid_sents, [c["content"] for c in ctx_full], embedder, batch_fact_check)
+            print(f"SSR: {ssr}")
             ssr_scores.append(ssr)
 
         n = len(qa_set)

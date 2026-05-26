@@ -50,4 +50,4 @@ JSON数组："""
     # fallback
     s_vecs = embedder.encode_text_st(sentences)
     ev_vecs = embedder.encode_text_st(evidences)
-    return [float(np.max(cosine_similarity([v], ev_vecs))) > 0.7 for v in s_vecs]
+    return [float(np.max(cosine_similarity([v], ev_vecs))) > 0.5 for v in s_vecs]

@@ -1,9 +1,8 @@
 import os
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
-import os
+import streamlit as st
 
-QWEN_API_KEY = os.getenv("QWEN_API_KEY", "sk-YOUR-KEY-HERE")
+# 优先从环境变量读取，其次从 Streamlit secrets 读取
+QWEN_API_KEY = os.getenv("QWEN_API_KEY") or st.secrets.get("QWEN_API_KEY", "sk-YOUR-KEY-HERE")
 QWEN_URL_TEXT = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
 QWEN_URL_VL   = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
 CHROMA_PATH = "./chroma_v12"
-
