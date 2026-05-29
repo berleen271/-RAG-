@@ -223,7 +223,13 @@ Python 3.10, PyTorch, Transformers, SentenceTransformer, ChromaDB, Streamlit, Op
 
 **硬件环境**  
 CPU：Intel i7+；GPU：RTX3060 及以上；RAM：16GB+
+## 运行测试
 
+本项目使用 pytest 进行单元测试，主要验证评估指标函数的正确性。
+
+### 安装测试依赖
+```bash
+pip install pytest
 ---
 
 ## 🛠 快速运行
